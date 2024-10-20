@@ -1,56 +1,39 @@
-# Import python packages
 import streamlit as st
 from snowflake.snowpark.context import get_active_session
 from snowflake.snowpark.functions import col
+import pandas as pd
 
-# Write directly to the app
-st.title(":cup_with_straw: Customize Your Smoothie! :cup_with_straw:")
-st.write(
-    """Choose the fruits you want in your custom Smoothie!
-    """)
-
-# import streamlit as st
-
-name_on_order = st.text_input('Name of Smoothie:')
-st.write('The name on your Smoothie will be:', name_on_order)
-
+st.title("Zena's Amazing Athleisure Catalog")
 
 session = get_active_session()
-my_dataframe = session.table("smoothies.public.fruit_options").select(col('FRUIT_NAME'))
-# st.dataframe(data=my_dataframe, use_container_width=True)
 
-ingredients_list = st.multiselect(
-    'Choose up to 5 ingredients:'
-    , my_dataframe
-    , max_selections=5
-    )
-if ingredients_list:
-    
-    ingredients_string = ''
+# get a list of colors for a drop list selection
+table_colors = session.sql("select color_or_style from catalog_for_website")
+pd_colors = table_colors.to_pandas()
 
-    for fruit_chosen in ingredients_list:
-        ingredients_string += fruit_chosen +' '
+# Oyt the list of colors into a drop list selector 
+option = st.selectbox('Pick a sweatsuit color or style:', pd_colors)
 
-    # st.write(ingredients_string)
+# We'll build the image caption now, since we can
+product_caption = 'Our warm, comfortable, ' + option + ' sweatsuit!'
 
-    
-    my_insert_stmt = """ insert into smoothies.public.orders(ingredients, name_on_order)
-            values ('""" + ingredients_string + """', '"""+name_on_order+"""')"""
+# use the color selected to go back and get all the info from the database
+table_prod_data = session.sql("select file_name, price, size_list, upsell_product_desc, file_url from catalog_for_website where color_or_style = '" + option + "';")
+pd_prod_data = table_prod_data.to_pandas() 
 
-    # st.write(my_insert_stmt)
-    # st.stop()
-    
-    time_to_insert = st.button('Submit Order')
+# assign each column of the row returned to its own variable 
+price = '$' + str(pd_prod_data['PRICE'].iloc[0])+'0'
+file_name = pd_prod_data['FILE_NAME'].iloc[0]
+size_list = pd_prod_data['SIZE_LIST'].iloc[0]
+upsell = pd_prod_data['UPSELL_PRODUCT_DESC'].iloc[0]
+url = pd_prod_data['FILE_URL'].iloc[0]
 
-    if time_to_insert:
-        session.sql(my_insert_stmt).collect()
-        
-        # st.success('Your Smoothie is ordered!', icon="✅" +'May')
-        # st.success('Your Smoothie is ordered! ' + "✅ " + name_on_order)
-        st.success("✅ " + "Your Smoothie is ordered, " + name_on_order + "!")
+# display the info on the page
+# st.image(image=file_name, width=400, caption=product_caption)
+st.image(image=url, width=400, caption=product_caption)
+st.markdown('**Price:** '+ price)
+st.markdown('**Sizes Available:** ' + size_list)
+st.markdown('**Also Consider:** ' + upsell)
 
 
-
-
-
-
+# st.write(url)
